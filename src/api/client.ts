@@ -32,7 +32,14 @@ const processQueue = (error: unknown, token: string | null = null) => {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Si el backend responde con un ApiResponse { success, data, message }
+    // extraemos el payload real para que el resto de la app no tenga que cambiar
+    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+      response.data = response.data.data
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
 

@@ -10,6 +10,7 @@ import DashboardPage from '../pages/dashboard/DashboardPage'
 import LeadsPage from '../pages/leads/LeadsPage'
 import CustomersPage from '../pages/customers/CustomersPage'
 import QuotesPage from '../pages/quotes/QuotesPage'
+import LeadDetailPage from '../pages/leads/LeadDetailPage'
 import NotFoundPage from '../pages/NotFoundPage'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: 'leads', element: <LeadsPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'quotes', element: <QuotesPage /> },
+      { path: 'leads/:id', element: <LeadDetailPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
