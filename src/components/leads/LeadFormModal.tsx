@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
-import { leadsApi, type CreateLeadDto } from '../../api/leads'
+import { useCreateLead } from '../../hooks/leads/useCreateLead'
+import { useUpdateLead } from '../../hooks/leads/useUpdateLead'
+import type { CreateLeadDto } from '../../api/leads.api'
 import type { Lead } from '../../types'
 import {
   Dialog, DialogContent, DialogHeader,
@@ -39,7 +39,6 @@ interface Props {
 }
 
 export default function LeadFormModal({ open, onClose, lead }: Props) {
-  const qc = useQueryClient()
   const isEdit = !!lead
 
   const { register, handleSubmit, reset, setValue, watch,
@@ -68,29 +67,11 @@ export default function LeadFormModal({ open, onClose, lead }: Props) {
     }
   }, [lead, reset])
 
-  // ── Mutations ────────────────────────────────────────────────────────────────
-  const createMutation = useMutation({
-    mutationFn: (data: CreateLeadDto) => leadsApi.create(data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] })
-      toast.success('Lead creado correctamente')
-      onClose()
-    },
-    onError: () => toast.error('No se pudo crear el lead'),
-  })
+  // ── Hooks ─────────────────────────────────────────────────────────────────────
+  const createLead = useCreateLead()
+  const updateLead = useUpdateLead(lead?.id ?? '')
 
-  const updateMutation = useMutation({
-    mutationFn: (data: CreateLeadDto) => leadsApi.update(lead!.id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] })
-      qc.invalidateQueries({ queryKey: ['lead', lead!.id] })
-      toast.success('Lead actualizado')
-      onClose()
-    },
-    onError: () => toast.error('No se pudo actualizar el lead'),
-  })
-
-  const isLoading = createMutation.isPending || updateMutation.isPending
+  const isLoading = createLead.isPending || updateLead.isPending
 
   const onSubmit = (data: FormData) => {
     const payload: CreateLeadDto = {
@@ -100,7 +81,11 @@ export default function LeadFormModal({ open, onClose, lead }: Props) {
       phone:   data.phone   || undefined,
       notes:   data.notes   || undefined,
     }
-    isEdit ? updateMutation.mutate(payload) : createMutation.mutate(payload)
+    if (isEdit) {
+      updateLead.mutate(payload, { onSuccess: onClose })
+    } else {
+      createLead.mutate(payload, { onSuccess: onClose })
+    }
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────

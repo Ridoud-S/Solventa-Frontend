@@ -2,68 +2,65 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { User, LoginRequest, RegisterRequest } from '../types'
 import { authApi } from '../api/auth'
+import { tokenStorage } from '../api/client'
+
+// ── Clave local sólo para el objeto User (los tokens los maneja tokenStorage) ──
+const USER_KEY = 'solventa_user'
 
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (data: LoginRequest) => Promise<void>
+  login:    (data: LoginRequest)    => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
-  logout: () => void
+  logout:   () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser]         = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Rehidratar sesión al recargar la página
+  // Rehidratar sesión al recargar
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    const storedUser = localStorage.getItem('user')
+    const token      = tokenStorage.getAccess()
+    const storedUser = localStorage.getItem(USER_KEY)
     if (token && storedUser) {
       try {
         setUser(JSON.parse(storedUser))
       } catch {
-        localStorage.clear()
+        tokenStorage.clear()
+        localStorage.removeItem(USER_KEY)
       }
     }
     setIsLoading(false)
   }, [])
 
+  const persist = (res: { accessToken: string; refreshToken: string; user: User }) => {
+    tokenStorage.set(res.accessToken, res.refreshToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user))
+    setUser(res.user)
+  }
+
   const login = async (data: LoginRequest) => {
-    const response = await authApi.login(data)
-    localStorage.setItem('accessToken', response.accessToken)
-    localStorage.setItem('refreshToken', response.refreshToken)
-    localStorage.setItem('user', JSON.stringify(response.user))
-    setUser(response.user)
+    const res = await authApi.login(data)
+    persist(res)
   }
 
   const register = async (data: RegisterRequest) => {
-    const response = await authApi.register(data)
-    localStorage.setItem('accessToken', response.accessToken)
-    localStorage.setItem('refreshToken', response.refreshToken)
-    localStorage.setItem('user', JSON.stringify(response.user))
-    setUser(response.user)
+    const res = await authApi.register(data)
+    persist(res)
   }
 
   const logout = () => {
-    localStorage.clear()
+    tokenStorage.clear()
+    localStorage.removeItem(USER_KEY)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

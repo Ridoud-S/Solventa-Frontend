@@ -1,89 +1,106 @@
-import axios from 'axios'
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import type { ApiResponse } from '../types/api'
 
-const BASE_URL = import.meta.env.VITE_API_URL
-
-export const apiClient = axios.create({
-  baseURL: BASE_URL,
+// ── Config base ────────────────────────────────────────────────────────────────
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api',
   headers: { 'Content-Type': 'application/json' },
 })
 
-// ── Request interceptor: adjunta el JWT ───────────────────────────────────────
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
+// ── Helpers de token ───────────────────────────────────────────────────────────
+const TOKEN_KEY   = 'solventa_access_token'
+const REFRESH_KEY = 'solventa_refresh_token'
+
+export const tokenStorage = {
+  getAccess:  () => localStorage.getItem(TOKEN_KEY),
+  getRefresh: () => localStorage.getItem(REFRESH_KEY),
+  set: (access: string, refresh: string) => {
+    localStorage.setItem(TOKEN_KEY, access)
+    localStorage.setItem(REFRESH_KEY, refresh)
+  },
+  clear: () => {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
+  },
+}
+
+// ── Request: inyectar JWT ──────────────────────────────────────────────────────
+apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = tokenStorage.getAccess()
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// ── Response interceptor: maneja 401 y refresca el token ─────────────────────
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (token: string) => void
-  reject: (error: unknown) => void
-}> = []
-
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error)
-    else prom.resolve(token!)
-  })
-  failedQueue = []
-}
+// ── Response: desempaquetar ApiResponse + refresh automático en 401 ─────────────
+let isRefreshing  = false
+let refreshQueue: Array<(token: string) => void> = []
 
 apiClient.interceptors.response.use(
+  // Caso éxito: el backend retorna { success, data } → devolvemos solo data
   (response) => {
-    // Si el backend responde con un ApiResponse { success, data, message }
-    // extraemos el payload real para que el resto de la app no tenga que cambiar
-    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
-      response.data = response.data.data
+    const body = response.data as ApiResponse<unknown>
+    if (body && typeof body === 'object' && 'data' in body) {
+      response.data = body.data
     }
     return response
   },
-  async (error) => {
-    const originalRequest = error.config
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error)
+  // Caso error
+  async (error: AxiosError) => {
+    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+
+    // ── 401: intentar refresh una vez ─────────────────────────────────────────
+    if (error.response?.status === 401 && !original._retry) {
+      const refreshToken = tokenStorage.getRefresh()
+      if (!refreshToken) {
+        tokenStorage.clear()
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      if (isRefreshing) {
+        // Ya hay un refresh en curso — encolar este request
+        return new Promise((resolve) => {
+          refreshQueue.push((newToken) => {
+            original.headers.Authorization = `Bearer ${newToken}`
+            resolve(apiClient(original))
+          })
+        })
+      }
+
+      original._retry = true
+      isRefreshing    = true
+
+      try {
+        const res = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+          `${apiClient.defaults.baseURL}/auth/refresh`,
+          { refreshToken },
+        )
+        const { accessToken, refreshToken: newRefresh } = res.data.data
+        tokenStorage.set(accessToken, newRefresh)
+
+        refreshQueue.forEach((cb) => cb(accessToken))
+        refreshQueue = []
+
+        original.headers.Authorization = `Bearer ${accessToken}`
+        return apiClient(original)
+      } catch (refreshError) {
+        tokenStorage.clear()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
+      }
     }
 
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject })
-      }).then((token) => {
-        originalRequest.headers.Authorization = `Bearer ${token}`
-        return apiClient(originalRequest)
-      })
+    // Cualquier otro error: extraer el mensaje del backend si existe
+    const apiBody = error.response?.data as ApiResponse<unknown> | undefined
+    if (apiBody?.message) {
+      ;(error as AxiosError & { backendMessage?: string }).backendMessage = apiBody.message
     }
 
-    originalRequest._retry = true
-    isRefreshing = true
-
-    const refreshToken = localStorage.getItem('refreshToken')
-
-    if (!refreshToken) {
-      isRefreshing = false
-      localStorage.clear()
-      window.location.href = '/login'
-      return Promise.reject(error)
-    }
-
-    try {
-      const { data } = await axios.post(`${BASE_URL}/auth/refresh`, {
-        refreshToken,
-      })
-      const newToken = data.accessToken
-      localStorage.setItem('accessToken', newToken)
-      processQueue(null, newToken)
-      originalRequest.headers.Authorization = `Bearer ${newToken}`
-      return apiClient(originalRequest)
-    } catch (refreshError) {
-      processQueue(refreshError, null)
-      localStorage.clear()
-      window.location.href = '/login'
-      return Promise.reject(refreshError)
-    } finally {
-      isRefreshing = false
-    }
-  }
+    return Promise.reject(error)
+  },
 )
+
+export default apiClient

@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import apiClient from './client'
 import type { FollowUp, Reminder, EntityType } from '../types'
 
 export interface CreateFollowUpDto {

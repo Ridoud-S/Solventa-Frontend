@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, MoreHorizontal, Eye, Pencil, Trash2, UserCheck } from 'lucide-react'
-import toast from 'react-hot-toast'
-import { leadsApi, type LeadFilters } from '../../api/leads'
 import type { Lead } from '../../types'
+import type { LeadFilters } from '../../api/leads.api'
+import { useLeads }      from '../../hooks/leads/useLeads'
+import { useDeleteLead } from '../../hooks/leads/useDeleteLead'
+import { useConvertLead } from '../../hooks/leads/useConvertLead'
 import { LeadStatusBadge, LeadPriorityBadge } from '../../components/leads/LeadStatusBadge'
 import LeadFormModal from '../../components/leads/LeadFormModal'
 import { Button } from '../../components/ui/button'
@@ -27,20 +28,10 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '../../components/ui/alert-dialog'
 
-// ── Datos de demo (mientras el backend no esté) ────────────────────────────────
-const DEMO_LEADS: Lead[] = [
-  { id: '1', name: 'Carlos Mendoza',  company: 'Ferretería López',    email: 'carlos@lopez.mx',   phone: '55 1234 5678', source: 'WHATSAPP', status: 'NEW',       priority: 'HIGH',   notes: 'Interesado en cotización de material de construcción', createdAt: '2026-06-01T10:00:00Z', updatedAt: '2026-06-01T10:00:00Z' },
-  { id: '2', name: 'Ana Rodríguez',   company: 'Despacho Contable AR', email: 'ana@despacholar.mx', phone: '55 8765 4321', source: 'REFERRAL', status: 'CONTACTED', priority: 'MEDIUM', notes: 'Referida por cliente existente', createdAt: '2026-06-02T09:00:00Z', updatedAt: '2026-06-03T11:00:00Z' },
-  { id: '3', name: 'Roberto Vega',    company: 'Constructora Vega',    email: 'rvega@cvega.mx',    phone: '55 2345 6789', source: 'EMAIL',    status: 'QUALIFIED', priority: 'HIGH',   notes: 'Proyecto de 2M. Necesita cotización detallada', createdAt: '2026-06-03T08:00:00Z', updatedAt: '2026-06-05T14:00:00Z' },
-  { id: '4', name: 'María Torres',    company: 'Taller Torres',        email: 'mtorres@taller.mx', phone: '55 3456 7890', source: 'PHONE',    status: 'NEW',       priority: 'LOW',    notes: 'Llamó preguntando precios', createdAt: '2026-06-04T15:00:00Z', updatedAt: '2026-06-04T15:00:00Z' },
-  { id: '5', name: 'Jorge Fuentes',   company: 'Agencia Fuentes',      email: 'jfuentes@af.mx',    phone: '55 4567 8901', source: 'WEBSITE',  status: 'CONVERTED', priority: 'HIGH',   notes: 'Convertido a cliente el 8 de junio', createdAt: '2026-06-05T10:00:00Z', updatedAt: '2026-06-08T10:00:00Z' },
-]
-
 export default function LeadsPage() {
-  const navigate   = useNavigate()
-  const qc         = useQueryClient()
+  const navigate = useNavigate()
 
-  // ── UI state ─────────────────────────────────────────────────────────────────
+  // ── UI state ──────────────────────────────────────────────────────────────────
   const [filters,       setFilters]       = useState<LeadFilters>({ page: 0, size: 20 })
   const [search,        setSearch]        = useState('')
   const [modalOpen,     setModalOpen]     = useState(false)
@@ -48,59 +39,44 @@ export default function LeadsPage() {
   const [deleteTarget,  setDeleteTarget]  = useState<Lead | null>(null)
   const [convertTarget, setConvertTarget] = useState<Lead | null>(null)
 
-  // ── Query ─────────────────────────────────────────────────────────────────────
-  const { data, isLoading } = useQuery({
-    queryKey: ['leads', filters],
-    queryFn:  () => leadsApi.getAll(filters),
-    placeholderData: {
-      content:       DEMO_LEADS,
-      totalElements: DEMO_LEADS.length,
-      totalPages:    1,
-      number:        0,
-      size:          20,
-    },
-  })
+  // ── Hooks ─────────────────────────────────────────────────────────────────────
+  const { data, isLoading, isFetching } = useLeads(filters)
+  const deleteLead  = useDeleteLead()
+  const convertLead = useConvertLead()
 
   const leads = data?.content ?? []
 
-  // ── Filtrado local (para demo) ────────────────────────────────────────────────
-  const filtered = leads.filter((l) => {
-    const q = search.toLowerCase()
-    if (!q) return true
-    return (
-      l.name.toLowerCase().includes(q) ||
-      l.company?.toLowerCase().includes(q) ||
-      l.email?.toLowerCase().includes(q)
-    )
-  })
-
-  // ── Mutations ─────────────────────────────────────────────────────────────────
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => leadsApi.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] })
-      toast.success('Lead eliminado')
-      setDeleteTarget(null)
-    },
-    onError: () => toast.error('No se pudo eliminar el lead'),
-  })
-
-  const convertMutation = useMutation({
-    mutationFn: (id: string) => leadsApi.convertToCustomer(id),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['leads'] })
-      qc.invalidateQueries({ queryKey: ['customers'] })
-      toast.success('Lead convertido a cliente')
-      setConvertTarget(null)
-      navigate(`/customers/${data.customerId}`)
-    },
-    onError: () => toast.error('No se pudo convertir el lead'),
-  })
+  // Filtrado local por búsqueda
+  const filtered = search
+    ? leads.filter((l) => {
+        const q = search.toLowerCase()
+        return (
+          l.name.toLowerCase().includes(q) ||
+          l.company?.toLowerCase().includes(q) ||
+          l.email?.toLowerCase().includes(q)
+        )
+      })
+    : leads
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
-  const handleEdit    = (lead: Lead) => { setEditLead(lead); setModalOpen(true) }
-  const handleNew     = ()           => { setEditLead(null);  setModalOpen(true) }
-  const handleClose   = ()           => { setModalOpen(false); setEditLead(null) }
+  const handleEdit  = (lead: Lead) => { setEditLead(lead); setModalOpen(true) }
+  const handleNew   = ()           => { setEditLead(null);  setModalOpen(true) }
+  const handleClose = ()           => { setModalOpen(false); setEditLead(null) }
+
+  const handleDelete = () => {
+    if (!deleteTarget) return
+    deleteLead.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
+  }
+
+  const handleConvert = () => {
+    if (!convertTarget) return
+    convertLead.mutate(convertTarget.id, {
+      onSuccess: (data) => {
+        setConvertTarget(null)
+        navigate(`/customers/${data.customerId}`)
+      },
+    })
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -165,6 +141,9 @@ export default function LeadsPage() {
             <SelectItem value="LOW">Baja</SelectItem>
           </SelectContent>
         </Select>
+        {isFetching && !isLoading && (
+          <span className="text-xs text-muted-foreground animate-pulse">Actualizando…</span>
+        )}
       </div>
 
       {/* Tabla */}
@@ -187,7 +166,7 @@ export default function LeadsPage() {
                 <TableRow key={i}>
                   {[...Array(7)].map((_, j) => (
                     <TableCell key={j}>
-                      <div className="h-4 bg-muted animate-pulse rounded w-full" />
+                      <div className="h-4 bg-muted animate-pulse rounded" />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -253,11 +232,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Modal crear/editar */}
-      <LeadFormModal
-        open={modalOpen}
-        onClose={handleClose}
-        lead={editLead}
-      />
+      <LeadFormModal open={modalOpen} onClose={handleClose} lead={editLead} />
 
       {/* Confirm eliminar */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
@@ -273,9 +248,10 @@ export default function LeadsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              onClick={handleDelete}
+              disabled={deleteLead.isPending}
             >
-              Eliminar
+              {deleteLead.isPending ? 'Eliminando…' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -295,9 +271,10 @@ export default function LeadsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-green-600 text-white hover:bg-green-700"
-              onClick={() => convertTarget && convertMutation.mutate(convertTarget.id)}
+              onClick={handleConvert}
+              disabled={convertLead.isPending}
             >
-              Convertir
+              {convertLead.isPending ? 'Convirtiendo…' : 'Convertir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

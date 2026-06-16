@@ -1,5 +1,6 @@
 import apiClient from './client'
-import type { Lead, PageResponse } from '../types'
+import type { Lead } from '../types'
+import type { PageResponse } from '../types/api'
 
 export interface CreateLeadDto {
   name: string
@@ -9,11 +10,10 @@ export interface CreateLeadDto {
   source: Lead['source']
   priority: Lead['priority']
   notes?: string
+  assignedToId?: string
 }
 
-export interface UpdateLeadDto extends Partial<CreateLeadDto> {
-  status?: Lead['status']
-}
+export type UpdateLeadDto = CreateLeadDto
 
 export interface LeadFilters {
   q?: string
@@ -24,7 +24,7 @@ export interface LeadFilters {
 }
 
 export const leadsApi = {
-  getAll: (filters: LeadFilters = {}) =>
+  list: (filters: LeadFilters = {}) =>
     apiClient
       .get<PageResponse<Lead>>('/leads', { params: filters })
       .then((r) => r.data),
@@ -39,7 +39,7 @@ export const leadsApi = {
     apiClient.put<Lead>(`/leads/${id}`, data).then((r) => r.data),
 
   delete: (id: string) =>
-    apiClient.delete(`/leads/${id}`).then((r) => r.data),
+    apiClient.delete<void>(`/leads/${id}`).then((r) => r.data),
 
   changeStatus: (id: string, status: Lead['status']) =>
     apiClient
@@ -48,6 +48,6 @@ export const leadsApi = {
 
   convertToCustomer: (id: string) =>
     apiClient
-      .post<{ customerId: string }>(`/leads/${id}/convert`)
+      .post<{ customerId: string; message: string }>(`/leads/${id}/convert`)
       .then((r) => r.data),
 }
