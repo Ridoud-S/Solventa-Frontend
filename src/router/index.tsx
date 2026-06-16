@@ -9,6 +9,7 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import DashboardPage from '../pages/dashboard/DashboardPage'
 import LeadsPage from '../pages/leads/LeadsPage'
 import CustomersPage from '../pages/customers/CustomersPage'
+import CustomerDetailPage from '../pages/customers/CustomerDetailPage'
 import QuotesPage from '../pages/quotes/QuotesPage'
 import LeadDetailPage from '../pages/leads/LeadDetailPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -47,9 +48,10 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'leads', element: <LeadsPage /> },
-      { path: 'customers', element: <CustomersPage /> },
-      { path: 'quotes', element: <QuotesPage /> },
-      { path: 'leads/:id', element: <LeadDetailPage /> },
+      { path: 'customers',     element: <CustomersPage /> },
+      { path: 'customers/:id', element: <CustomerDetailPage /> },
+      { path: 'quotes',        element: <QuotesPage /> },
+      { path: 'leads/:id',     element: <LeadDetailPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

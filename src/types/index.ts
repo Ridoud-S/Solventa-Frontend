@@ -55,6 +55,8 @@ export interface Customer {
   company?: string
   email?: string
   phone?: string
+  rfc?: string
+  address?: string
   assignedTo?: User
   leadId?: string
   notes?: string
