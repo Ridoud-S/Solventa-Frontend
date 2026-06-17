@@ -11,6 +11,7 @@ import LeadsPage from '../pages/leads/LeadsPage'
 import CustomersPage from '../pages/customers/CustomersPage'
 import CustomerDetailPage from '../pages/customers/CustomerDetailPage'
 import QuotesPage from '../pages/quotes/QuotesPage'
+import QuoteDetailPage from '../pages/quotes/QuoteDetailPage'
 import LeadDetailPage from '../pages/leads/LeadDetailPage'
 import NotFoundPage from '../pages/NotFoundPage'
 
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: 'customers',     element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'quotes',        element: <QuotesPage /> },
+      { path: 'quotes/:id',    element: <QuoteDetailPage /> },
       { path: 'leads/:id',     element: <LeadDetailPage /> },
     ],
   },

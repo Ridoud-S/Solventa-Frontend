@@ -68,17 +68,21 @@ export interface Customer {
 export type QuoteStatus = 'DRAFT' | 'SENT' | 'WON' | 'LOST' | 'EXPIRED'
 
 export interface QuoteLine {
-  id?: string
+  id: string
   description: string
   quantity: number
   unitPrice: number
   subtotal: number
+  sortOrder: number
 }
 
 export interface Quote {
   id: string
-  customerId: string
-  customer?: Customer
+  customer: {
+    id: string
+    name: string
+    company?: string
+  }
   title: string
   status: QuoteStatus
   lines: QuoteLine[]
@@ -86,10 +90,15 @@ export interface Quote {
   taxPct: number
   subtotal: number
   total: number
+  notes?: string
   issuedAt: string
   expiresAt: string
-  notes?: string
+  createdBy?: {
+    id: string
+    name: string
+  }
   createdAt: string
+  updatedAt: string
 }
 
 // ── FollowUp ──────────────────────────────────────────────────────────────────
