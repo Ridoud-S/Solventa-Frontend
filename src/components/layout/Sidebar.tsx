@@ -6,6 +6,8 @@ import {
   FileText,
   Settings,
   LogOut,
+  User,
+  UsersRound,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../context/AuthContext'
@@ -13,11 +15,36 @@ import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/leads',     icon: Users,           label: 'Leads'     },
-  { to: '/customers', icon: UserCheck,       label: 'Clientes'  },
-  { to: '/quotes',    icon: FileText,        label: 'Cotizaciones' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard'     },
+  { to: '/leads',     icon: Users,           label: 'Leads'         },
+  { to: '/customers', icon: UserCheck,       label: 'Clientes'      },
+  { to: '/quotes',    icon: FileText,        label: 'Cotizaciones'  },
 ]
+
+const SETTINGS_ITEMS = [
+  { to: '/profile',  icon: User,        label: 'Mi perfil'     },
+  { to: '/settings', icon: Settings,    label: 'Configuración' },
+  { to: '/team',     icon: UsersRound,  label: 'Equipo'        },
+]
+
+function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+          isActive
+            ? 'bg-primary text-primary-foreground font-medium'
+            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+        )
+      }
+    >
+      <Icon size={16} />
+      {label}
+    </NavLink>
+  )
+}
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
@@ -31,26 +58,24 @@ export default function Sidebar() {
         </span>
       </div>
 
-      {/* Nav */}
+      {/* Nav principal */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )
-            }
-          >
-            <Icon size={16} />
-            {label}
-          </NavLink>
+        {NAV_ITEMS.map(({ to, icon, label }) => (
+          <NavItem key={to} to={to} icon={icon} label={label} />
         ))}
       </nav>
+
+      <Separator />
+
+      {/* Sección configuración */}
+      <div className="px-3 py-3 space-y-1">
+        <p className="text-xs font-medium text-muted-foreground px-3 pb-1 uppercase tracking-wider">
+          Cuenta
+        </p>
+        {SETTINGS_ITEMS.map(({ to, icon, label }) => (
+          <NavItem key={to} to={to} icon={icon} label={label} />
+        ))}
+      </div>
 
       <Separator />
 
@@ -60,21 +85,14 @@ export default function Sidebar() {
           <p className="text-sm font-medium truncate">{user?.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
         </div>
-        <div className="flex gap-2">
-          <NavLink to="/settings" className="flex-1">
-            <Button variant="outline" size="sm" className="w-full gap-2">
-              <Settings size={14} /> Config
-            </Button>
-          </NavLink>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={logout}
-            className="gap-2"
-          >
-            <LogOut size={14} />
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={logout}
+          className="w-full gap-2"
+        >
+          <LogOut size={14} /> Cerrar sesión
+        </Button>
       </div>
     </aside>
   )

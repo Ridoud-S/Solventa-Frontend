@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Filter, MoreHorizontal, Eye, Trash2,
 } from 'lucide-react'
@@ -35,8 +35,10 @@ export default function QuotesPage() {
   const navigate = useNavigate()
 
   // ── UI state ─────────────────────────────────────────────────────────────────
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = (searchParams.get('status') as QuoteStatus | null) ?? 'ALL'
+
   const [search,       setSearch]       = useState('')
-  const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'ALL'>('ALL')
   const [modalOpen,    setModalOpen]    = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null)
 
@@ -90,7 +92,14 @@ export default function QuotesPage() {
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as QuoteStatus | 'ALL')}
+          onValueChange={(v) => {
+            if (v === 'ALL') {
+              searchParams.delete('status')
+            } else {
+              searchParams.set('status', v)
+            }
+            setSearchParams(searchParams)
+          }}
         >
           <SelectTrigger className="w-40">
             <Filter size={14} className="mr-2 text-muted-foreground" />

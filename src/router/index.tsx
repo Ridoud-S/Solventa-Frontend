@@ -13,6 +13,9 @@ import CustomerDetailPage from '../pages/customers/CustomerDetailPage'
 import QuotesPage from '../pages/quotes/QuotesPage'
 import QuoteDetailPage from '../pages/quotes/QuoteDetailPage'
 import LeadDetailPage from '../pages/leads/LeadDetailPage'
+import ProfilePage  from '../pages/settings/ProfilePage'
+import SettingsPage from '../pages/settings/SettingsPage'
+import TeamPage     from '../pages/settings/TeamPage'
 import NotFoundPage from '../pages/NotFoundPage'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -54,6 +57,9 @@ export const router = createBrowserRouter([
       { path: 'quotes',        element: <QuotesPage /> },
       { path: 'quotes/:id',    element: <QuoteDetailPage /> },
       { path: 'leads/:id',     element: <LeadDetailPage /> },
+      { path: 'profile',       element: <ProfilePage />  },
+      { path: 'settings',      element: <SettingsPage /> },
+      { path: 'team',          element: <TeamPage />     },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
